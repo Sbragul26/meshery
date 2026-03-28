@@ -144,6 +144,19 @@ const AnimatedMeshery = (props) => {
           d="M42.71,263.92H35.47V239a1.83,1.83,0,0,0-.16-.77,1.9,1.9,0,0,0-.43-.64,2,2,0,0,0-.64-.43,1.83,1.83,0,0,0-.77-.16H0v-7.24H33.47a8.81,8.81,0,0,1,3.57.73,9.49,9.49,0,0,1,3,2,9.38,9.38,0,0,1,2,3,8.81,8.81,0,0,1,.73,3.57Zm-35.47,0H0V237l7.24-2Zm17.71,0H17.71V240.8H25Z"
         ></path>{' '}
       </svg>
+      <script
+        dangerouslySetInnerHTML={{
+          __html: `
+            const svg = document.getElementById('Layer_1');
+            if (svg) {
+              const elements = svg.querySelectorAll('[class^="svg-meshery-"]');
+              setInterval(() => {
+                elements.forEach(el => el.classList.toggle("active"));
+              }, 4000);
+            }
+          `,
+        }}
+      />
     </div>
   );
 };
