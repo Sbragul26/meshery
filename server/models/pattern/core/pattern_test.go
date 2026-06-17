@@ -91,3 +91,46 @@ func TestDesignNameFromFileName(t *testing.T) {
 		})
 	}
 }
+
+func TestNoPrettifyDictionaryCollisions(t *testing.T) {
+	seen := map[string]string{}
+	for raw, display := range prettifyDictionary {
+		if prev, ok := seen[display]; ok {
+			t.Fatalf("collision: display %q maps from both raw %q and raw %q", display, prev, raw)
+		}
+		seen[display] = raw
+	}
+}
+
+func TestDictionaryRoundTrip(t *testing.T) {
+	raw := "apiVersion"
+	m := map[string]interface{}{raw: "value"}
+	p := prettifier(true)
+	prettied := p.Prettify(m, true)
+	displayKey := prettifyDictionary[raw]
+	if _, ok := prettied[displayKey]; !ok {
+		t.Fatalf("expected prettified key %q present, got %v", displayKey, prettied)
+	}
+	deprettied := p.DePrettify(prettied, true)
+	if _, ok := deprettied[raw]; !ok {
+		t.Fatalf("expected deprettified key %q present, got %v", raw, deprettied)
+	}
+
+	res := ConvertMapInterfaceMapString(raw, true, true)
+	s, ok := res.(string)
+	if !ok {
+		t.Fatalf("expected string result from ConvertMapInterfaceMapString, got %T", res)
+	}
+	if s != displayKey {
+		t.Fatalf("expected prettified string %q, got %q", displayKey, s)
+	}
+
+	res2 := ConvertMapInterfaceMapString(s, false, true)
+	s2, ok := res2.(string)
+	if !ok {
+		t.Fatalf("expected string result from ConvertMapInterfaceMapString, got %T", res2)
+	}
+	if s2 != raw {
+		t.Fatalf("expected deprettified string %q, got %q", raw, s2)
+	}
+}

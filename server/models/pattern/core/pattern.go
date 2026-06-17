@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"log"
 	"path/filepath"
 	"strings"
 
@@ -31,7 +32,12 @@ type prettifier bool
 This function is deprecated and will be removed in the future. Dont Rely on this function or prettification of schema
 */
 func (p prettifier) Prettify(m map[string]interface{}, isSchema bool) map[string]interface{} {
-	return m
+	res := ConvertMapInterfaceMapString(m, true, isSchema)
+	out, ok := res.(map[string]interface{})
+	if !ok {
+		fmt.Println("failed to cast")
+	}
+	return out
 
 }
 
@@ -67,9 +73,9 @@ func ConvertMapInterfaceMapString(v interface{}, prettify bool, isSchema bool) i
 				if isSchema && isSpecialKey(k2) { //Few special keys in schema should not be prettified
 					m[k2] = newmap
 				} else if prettify {
-					m[manifests.FormatToReadableString(k2)] = newmap
+					m[lookupPrettifyKey(k2)] = newmap
 				} else {
-					m[manifests.DeFormatReadableString(k2)] = newmap
+					m[lookupDePrettifyKey(k2)] = newmap
 				}
 			default:
 				m[fmt.Sprint(k)] = ConvertMapInterfaceMapString(v2, prettify, isSchema)
@@ -95,18 +101,18 @@ func ConvertMapInterfaceMapString(v interface{}, prettify bool, isSchema bool) i
 			if isSchema && isSpecialKey(k) {
 				m[k] = newmap
 			} else if prettify {
-				m[manifests.FormatToReadableString(k)] = newmap
+				m[lookupPrettifyKey(k)] = newmap
 			} else {
-				m[manifests.DeFormatReadableString(k)] = newmap
+				m[lookupDePrettifyKey(k)] = newmap
 			}
 		}
 		return m
 	case string:
 		if isSchema {
 			if prettify {
-				return manifests.FormatToReadableString(x) //Whitespace formatting should be done at the time of prettification only
+				return lookupPrettifyKey(x)
 			}
-			return manifests.DeFormatReadableString(x)
+			return lookupDePrettifyKey(x)
 		}
 	}
 	return v
@@ -114,6 +120,46 @@ func ConvertMapInterfaceMapString(v interface{}, prettify bool, isSchema bool) i
 
 // These keys should not be prettified to "any Of", "all Of" and "one Of"
 var keysToNotPrettifyOnSchema = []string{"anyOf", "allOf", "oneOf"}
+
+var prettifyDictionary = map[string]string{
+	"apiVersion": "API Version",
+	"api":        "API",
+	"id":         "ID",
+	"uuid":       "UUID",
+	"url":        "URL",
+	"tls":        "TLS",
+	"dns":        "DNS",
+	"http":       "HTTP",
+	"crd":        "CRD",
+	"rest":       "REST",
+	"k8s":        "K8s",
+}
+
+var deprettifyDictionary = map[string]string{}
+
+func init() {
+	for k, v := range prettifyDictionary {
+		if existing, ok := deprettifyDictionary[v]; ok {
+			log.Printf("WARN: prettify dictionary collision: display value %q is already mapped from raw key %q; incoming raw key %q will be ignored for reverse lookup", v, existing, k)
+			continue
+		}
+		deprettifyDictionary[v] = k
+	}
+}
+
+func lookupPrettifyKey(k string) string {
+	if v, ok := prettifyDictionary[k]; ok {
+		return v
+	}
+	return manifests.FormatToReadableString(k)
+}
+
+func lookupDePrettifyKey(k string) string {
+	if v, ok := deprettifyDictionary[k]; ok {
+		return v
+	}
+	return manifests.DeFormatReadableString(k)
+}
 
 func isSpecialKey(k string) bool {
 	for _, k0 := range keysToNotPrettifyOnSchema {
